@@ -107,11 +107,17 @@ def view_borrower_details():
         print(f"Borrower Details:\nCard ID: {borrower_card_id}\n")
 
         # Fetch books currently borrowed by the borrower
+        #1.0 sql = '''
+        #SELECT books.title, books.isbn, loans.borrow_date, loans.return_date
+        #FROM loans
+        #INNER JOIN books ON loans.book_id = books.id
+        #WHERE loans.borrower_id = ? AND loans.return_date IS NULL
+        #'''
         sql = '''
         SELECT books.title, books.isbn, loans.borrow_date, loans.return_date
         FROM loans
         INNER JOIN books ON loans.book_id = books.id
-        WHERE loans.borrower_id = ? AND loans.return_date IS NULL
+        WHERE loans.borrower_id = ?
         '''
         cursor.execute(sql, (borrower_id,))
         borrowed_books = cursor.fetchall()
@@ -119,12 +125,11 @@ def view_borrower_details():
         if borrowed_books:
             print("Currently Borrowed Books:")
             for book in borrowed_books:
-                title, isbn, loan_date, return_date = book
-                due_date = datetime.datetime.strptime(loan_date, '%Y-%m-%d').date() + timedelta(weeks=2)
+                title, isbn, borrow_date, return_date = book
                 print(f"Title: {title}")
                 print(f"ISBN: {isbn}")
-                print(f"Loan Date: {loan_date}")
-                print(f"Due Date: {due_date}")
+                print(f"Loan Date: {borrow_date}")
+                print(f"Due Date: {return_date}")
                 print("-" * 40)
         else:
             print("No books currently borrowed by this borrower.")
@@ -374,7 +379,11 @@ def check_out_book():
 
             if borrower:
                 borrower_id = borrower[0]
-                cursor.execute("INSERT INTO loans (book_id, borrower_id, loan_date) VALUES (?, ?, ?)", (book_id, borrower_id, datetime.now()))
+                borrow_date = datetime.datetime.now().date()
+                return_date = borrow_date + timedelta(weeks=2)
+                #1.0 cursor.execute("INSERT INTO loans (book_id, borrower_id, borrow_date) VALUES (?, ?, ?)", (book_id, borrower_id, datetime.now()))
+                #1.1 cursor.execute("INSERT INTO loans (book_id, borrower_id, borrow_date) VALUES (?, ?, ?)", (book_id, borrower_id, datetime.datetime.now().date()))
+                cursor.execute("INSERT INTO loans (book_id, borrower_id, borrow_date, return_date) VALUES (?, ?, ?, ?)", (book_id, borrower_id, borrow_date, return_date))
                 cursor.execute("UPDATE books SET copies_available = copies_available - 1 WHERE id = ?", (book_id,))
                 conn.commit()
                 print(f"Book '{title}' checked out successfully.")
@@ -491,6 +500,7 @@ def main_menu():
             man_menu()
         elif choice == '0':
              print("Exiting program.")
+             cursor.close()
              conn.close()  # Close the database connection before exiting
              sys.exit()  # Terminate the program
         else:
